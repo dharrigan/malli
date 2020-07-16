@@ -86,6 +86,13 @@
   (if (or (and min (< (count children) min)) (and max (> (count children) max)))
     (fail! ::child-error (merge {:type type, :properties properties, :children children} opts))))
 
+(defn -parent
+  ([x] (-> x meta ::parent))
+  ([x p] (vary-meta x assoc ::parent p)))
+
+(defn- -parent-schema [properties]
+  (reify Schema (-properties [_] properties)))
+
 (defn create-form [type properties children]
   (cond
     (and (seq properties) (seq children)) (into [type properties] children)
@@ -271,7 +278,7 @@
   (let [-parse (fn [[k ?p ?v :as e] f expand]
                  (let [[p ?s] (if (or (nil? ?p) (map? ?p)) [?p ?v] [nil ?p]), s (f k p ?s)]
                    (if expand [k p s] (->> (assoc (vec e) (dec (count e)) s) (keep identity) (vec)))))
-        children (->> ast (keep identity) (mapv #(-parse % (fn [_ _ s] (schema s options)) false)))
+        children (->> ast (keep identity) (mapv #(-parse % (fn [_ p s] (-parent (schema s options) (-parent-schema p))) false)))
         entries (->> children (mapv #(-parse % (fn [_ _ s] s) true)))
         forms (->> children (mapv #(-parse % (fn [_ _ s] (-form s)) false)))
         keys (->> children (map first))]
@@ -1034,6 +1041,13 @@
                                                                  'm/type type
                                                                  'm/children children
                                                                  'm/map-entries map-entries}})))
+
+(defn parent-properties
+  ([?schema]
+   (parent-properties ?schema nil))
+  ([?schema options]
+   (some-> (schema ?schema options) (-parent) (-properties))))
+
 ;;
 ;; Walkers
 ;;
