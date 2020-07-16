@@ -589,12 +589,13 @@
                                                (mt/key-transformer
                                                  {:decode #(-> % name (str "_key") keyword)}))))
 
-      (is (= {:x 24}
+      (is (= {:x 32}
              (m/decode
-               [:map
-                {:decode/string '{:enter #(update % :x inc), :leave #(update % :x (partial * 2))}}
-                [:x [int? {:decode/string '{:enter (partial + 2), :leave (partial * 3)}}]]]
-               {:x 1} mt/string-transformer)))
+               [:map {:decode/string '{:enter #(update % :x inc), :leave #(update % :x (partial * 2))}}
+                [:x {:decode/string '{:enter inc, :leave inc}}
+                 [int? {:decode/string '{:enter (partial + 2), :leave (partial * 3)}}]]]
+               {:x 1}
+               mt/string-transformer)))
 
       (is (true? (m/validate (over-the-wire schema) valid)))
 
@@ -1171,8 +1172,31 @@
                                         :children [{:type :map,
                                                     :children [[:street nil {:type 'string?}]
                                                                [:lonlat nil {:type :tuple
-                                                                             :children [{:type 'double?} {:type 'double?}]}]]}]}]]}
+                                                                             :children [{:type 'double?}
+                                                                                        {:type 'double?}]}]]}]}]]}
              (m/to-map-syntax schema))))
 
     (testing "from-map-syntax"
-      (is (true? (mu/equals schema (-> schema (m/to-map-syntax) (m/from-map-syntax))))))))
+      (is (true? (mu/equals schema (-> schema (m/to-map-syntax) (m/from-map-syntax))))))
+
+    (testing "walking entries"
+      (is (= {:type :map,
+              :properties {:registry {::size [:enum "S" "M" "L"]}}
+              :children [[:id nil {:type ::m/entry
+                                   :children [{:type 'string?}]}]
+                         [:tags nil {:type ::m/entry
+                                     :children [{:type :set
+                                                 :children [{:type 'keyword?}]}]}]
+                         [:size nil {:type ::m/entry
+                                     :children [{:type ::m/schema
+                                                 :children [::size]}]}]
+                         [:address nil {:type ::m/entry
+                                        :children [{:type :vector,
+                                                    :children [{:type :map,
+                                                                :children [[:street nil {:type ::m/entry
+                                                                                         :children [{:type 'string?}]}]
+                                                                           [:lonlat nil {:type ::m/entry
+                                                                                         :children [{:type :tuple
+                                                                                                     :children [{:type 'double?}
+                                                                                                                {:type 'double?}]}]}]]}]}]}]]}
+             (m/to-map-syntax schema {::m/walk-map-entries true}))))))
