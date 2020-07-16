@@ -34,17 +34,23 @@
   (is (= "abba" (m/keyword->string "abba"))))
 
 (deftest parse-entry-syntax-test
-  (let [{:keys [children entries forms]} (m/-parse-entry-syntax
-                                           [[:x int?]
-                                            [:y {:optional true, :title "boolean"} boolean?]] nil)]
+  (let [{:keys [children raw-entries entries forms]} (m/-parse-entry-syntax
+                                                       [[:x int?]
+                                                        [:y {:optional true, :title "int"} int?]] nil)]
     (testing "forms"
       (is (= [[:x 'int?]
-              [:y {:optional true, :title "boolean"} 'boolean?]]
+              [:y {:optional true, :title "int"} 'int?]]
              forms)))
+    (testing "raw-entries"
+      (is (entries= [[:x nil int?]
+                     [:y {:optional true, :title "int"} int?]]
+                    raw-entries))
+      (is (every? #{'int?} (->> raw-entries (map last) (map m/type)))))
     (testing "entries"
       (is (entries= [[:x nil int?]
-                     [:y {:optional true, :title "boolean"} boolean?]]
-                    entries)))
+                     [:y {:optional true, :title "int"} int?]]
+                    entries))
+      (is (every? #{::m/entry} (->> entries (map last) (map m/type)))))
     (testing "children"
       (is (= [2 3]
              (map count children)))))
